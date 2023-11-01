@@ -104,8 +104,8 @@ void B_output(struct msg message)
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-    if (packet.checksum == get_checksum(&packet) && A.base < packet.seqnum + 1) {
-        A.base = packet.seqnum + 1;
+    if (packet.checksum == get_checksum(&packet) && A.base < packet.acknum) {
+        A.base = packet.acknum;
         if (A.base == A.nextseq) {
             stoptimer(0);
         }
@@ -152,6 +152,7 @@ void B_input(struct pkt packet)
         tolayer5(1, packet.payload);
         printf("Recieved message: %s\n", packet.payload);
         B.packet_to_send.seqnum = B.expect_seq;
+        B.packet_to_send.acknum = B.expect_seq + 1;
         B.packet_to_send.checksum = get_checksum(&B.packet_to_send);
         tolayer3(1, B.packet_to_send);
         B.expect_seq += 1;
