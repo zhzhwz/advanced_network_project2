@@ -80,20 +80,18 @@ int get_checksum(struct pkt *packet)
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
-    if (A.nextseq < A.base + A.window_size) {
-        A.packet_buffer[A.nextseq].seqnum = A.nextseq;
-        A.packet_buffer[A.nextseq].acknum = 0;
-        strcpy(A.packet_buffer[A.nextseq].payload, message.data);
-        A.packet_buffer[A.nextseq].checksum = get_checksum(A.packet_buffer + A.nextseq);
+    A.packet_buffer[A.buffer_next].seqnum = A.buffer_next;
+    A.packet_buffer[A.buffer_next].acknum = 0;
+    strcpy(A.packet_buffer[A.buffer_next].payload, message.data);
+    A.packet_buffer[A.buffer_next].checksum = get_checksum(A.packet_buffer + A.buffer_next);
+    A.buffer_next += 1;
 
+    if (A.nextseq < A.base + A.window_size) {
         tolayer3(0, A.packet_buffer[A.nextseq]);
         if (A.base == A.nextseq) {
             starttimer(0, A.estimated_rtt);
         }
         A.nextseq += 1;
-    }
-    else {
-        printf("Dropped message: %s\n", message.data);
     }
 }
 
@@ -114,6 +112,13 @@ void A_input(struct pkt packet)
         else {
             stoptimer(0);
             starttimer(0, A.estimated_rtt);
+        }
+        while (A.nextseq < A.buffer_next && A.nextseq < A.base + A.window_size) {
+            tolayer3(0, A.packet_buffer[A.nextseq]);
+            if (A.base == A.nextseq) {
+                starttimer(0, A.estimated_rtt);
+            }
+            A.nextseq += 1;
         }
     }
 }
