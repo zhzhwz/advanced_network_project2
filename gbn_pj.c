@@ -104,7 +104,7 @@ void B_output(struct msg message)
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-    if (packet.checksum == get_checksum(&packet)) {
+    if (packet.checksum == get_checksum(&packet) && A.base < packet.seqnum + 1) {
         A.base = packet.seqnum + 1;
         if (A.base == A.nextseq) {
             stoptimer(0);
