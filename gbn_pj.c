@@ -80,7 +80,21 @@ int get_checksum(struct pkt *packet)
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
+    if (A.nextseq < A.base + A.window_size) {
+        A.packet_buffer[A.nextseq].seqnum = A.nextseq;
+        A.packet_buffer[A.nextseq].acknum = 0;
+        strcpy(A.packet_buffer[A.nextseq].payload, message.data);
+        A.packet_buffer[A.nextseq].checksum = get_checksum(A.packet_buffer + A.nextseq);
 
+        tolayer3(0, A.packet_buffer[A.nextseq]);
+        if (A.base == A.nextseq) {
+            starttimer(0, A.estimated_rtt);
+        }
+        A.nextseq += 1;
+    }
+    else {
+        printf("Dropped message: %s\n", message.data);
+    }
 }
 
 /* need be completed only for extra credit */
@@ -92,24 +106,36 @@ void B_output(struct msg message)
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-
+    if (packet.checksum == get_checksum(&packet)) {
+        A.base = packet.seqnum + 1;
+        if (A.base == A.nextseq) {
+            stoptimer(0);
+        }
+        else {
+            stoptimer(0);
+            starttimer(0, A.estimated_rtt);
+        }
+    }
 }
 
 /* called when A's timer goes off */
 void A_timerinterrupt(void)
 {
-
+    starttimer(0, A.estimated_rtt);
+    for (int i = A.base; i < A.nextseq; i++) {
+        tolayer3(0, A.packet_buffer[i]);
+    }
 }
 
 /* the following routine will be called once (only) before any other */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init(void)
 {
-    A.base = ;
-    A.nextseq = ;
-    A.window_size = ;       // 5 is suggested
-    A.estimated_rtt = ;     // 30 is suggested
-    A.buffer_next = ;
+    A.base = 1;
+    A.nextseq = 1;
+    A.window_size = 5;       // 5 is suggested
+    A.estimated_rtt = 30;     // 30 is suggested
+    A.buffer_next = 1;
 }
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
@@ -117,7 +143,17 @@ void A_init(void)
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-
+    if (packet.checksum == get_checksum(&packet) && packet.seqnum == B.expect_seq) {
+        tolayer5(1, packet.payload);
+        printf("Recieved message: %s\n", packet.payload);
+        B.packet_to_send.seqnum = B.expect_seq;
+        B.packet_to_send.checksum = get_checksum(&B.packet_to_send);
+        tolayer3(1, B.packet_to_send);
+        B.expect_seq += 1;
+    }
+    else {
+        tolayer3(1, B.packet_to_send);
+    }
 }
 
 /* called when B's timer goes off */
@@ -130,11 +166,11 @@ void B_timerinterrupt(void)
 /* entity B routines are called. You can use it to do any initialization */
 void B_init(void)
 {
-    B.expect_seq = ;
-    B.packet_to_send.seqnum = ;
-    B.packet_to_send.acknum = ;
+    B.expect_seq = 1;
+    B.packet_to_send.seqnum = 0;
+    B.packet_to_send.acknum = 1;
     memset(B.packet_to_send.payload, 0, 20);
-    B.packet_to_send.checksum = ;
+    B.packet_to_send.checksum = get_checksum(&B.packet_to_send);
 }
 
 /*****************************************************************
