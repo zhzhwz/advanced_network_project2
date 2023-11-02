@@ -150,7 +150,7 @@ void B_input(struct pkt packet)
 {
     if (packet.checksum == get_checksum(&packet) && packet.seqnum == B.expect_seq) {
         tolayer5(1, packet.payload);
-        printf("Recieved message: %s\n", packet.payload);
+        // printf("Recieved message: %s\n", packet.payload);
         B.packet_to_send.seqnum = B.expect_seq;
         B.packet_to_send.acknum = B.expect_seq + 1;
         B.packet_to_send.checksum = get_checksum(&B.packet_to_send);
